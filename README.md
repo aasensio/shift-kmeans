@@ -29,12 +29,13 @@ To use it, provided you have data with dimensions (n_samples, n_features), just 
 
 ```python
 
-    from kmeans_shift import kmeans_shift
+from kmeans_shift import kmeans_shift
 
-    centroids, labels, vout = kmeans_shift(y, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
+centroids, labels, vout = kmeans_shift(y, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
 ```
 
-
+It returns the `centroids` with the features of the `k` clusters, the `labels` of each 
+sample in the training set, and the shift `vout` of each sample.
 
 ## Parameters
 
@@ -44,7 +45,7 @@ To use it, provided you have data with dimensions (n_samples, n_features), just 
 - `lr (float)`: Initial learning rate for the optimizer (best results are obtained with large values)
 - `gpu (int)`: GPU index to use (-1 for CPU).
 - `infer_v (bool)`: If True, the subpixel shift 'v' is optimized during clustering.
-- `init (str)`: Initialization method for centroids ('random' or 'kmeans++').
+- `init (str)`: Initialization method for centroids (`random` or `kmeans++`).
 
 ## License
 
