@@ -116,7 +116,7 @@ def kmeans(data, k, max_iters=100, gpu=-1):
 
     return centroids, labels
 
-def kmeans_shift(data, k, max_iters=100, lr=0.1, gpu=-1, infer_v=True, init='random'):
+def shift_kmeans(data, k, max_iters=100, lr=0.1, gpu=-1, infer_v=True, init='random'):
     """
     Performs shift-independent k-means clustering using Euclidean distance
 
@@ -240,137 +240,62 @@ def kmeans_shift(data, k, max_iters=100, lr=0.1, gpu=-1, infer_v=True, init='ran
 
 if __name__ == '__main__':
 
-    from sklearn.cluster import KMeans
-    from scipy.io import readsav
+    from sklearn.cluster import KMeans    
     import matplotlib.pyplot as pl
     from matplotlib.colors import ListedColormap
     import numpy as np
     
     pl.close('all')
 
-    # example = 'synthetic'
-    example = 'stokes'
+    nx = 30
+    ny = 30
+
+    x = np.linspace(-1, 1, 30)
+    y = np.linspace(-1, 1, 30)
+    X, Y = np.meshgrid(x, y)
+    X = X.flatten()
+    Y = Y.flatten()
+    v = 1.0 * np.sin(np.pi * X) * np.cos(np.pi * Y)
+
+    wav = np.linspace(-5, 5, 100)
+    y1 = np.exp(-(wav[None, :] - v[:, None])**2 * 2.0)
+    y2 = np.exp(-(wav[None, :] - v[:, None])**2 * 3.0) + 0.5 * np.exp(-((wav[None, :] - v[:, None]) - 2)**2 * 2.0)
+
+    y = np.concatenate([y1[0:450, :], y2[450:, :]], axis=0)
+
+    k = 2
+
+    kmeans_np = KMeans(n_clusters=k, random_state=0, n_init="auto").fit(y)
+
+    y = torch.tensor(y.astype('float32'))
+    centroids, labels, vout = shift_kmeans(y, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
+
+    limited_colors = pl.cm.tab10(np.linspace(0, k/10.0-0.1, k))
+    limited_cmap = ListedColormap(limited_colors)
+
+    fig, ax = pl.subplots(nrows=1, ncols=2, figsize=(12, 6))
+    for i in range(k):
+        ax[0].plot(centroids[i, :].cpu().numpy(), label=f'Centroid {i}')
+    ax[0].legend()
+    ax[0].set_title('KMeans Centroids (PyTorch)')
     
-    if example == 'synthetic':
-        nx = 30
-        ny = 30
+    for i in range(k):
+        ax[1].plot(kmeans_np.cluster_centers_[i, :], label=f'Cluster {i}')
+    ax[1].set_title('KMeans Centroids (Scikit-learn)')
 
-        x = np.linspace(-1, 1, 30)
-        y = np.linspace(-1, 1, 30)
-        X, Y = np.meshgrid(x, y)
-        X = X.flatten()
-        Y = Y.flatten()
-        v = 1.0 * np.sin(np.pi * X) * np.cos(np.pi * Y)
+    fig, ax = pl.subplots(nrows=2, ncols=2, figsize=(12, 12))
+    im = ax[0, 0].imshow(labels.reshape(nx, ny).cpu().numpy(), cmap=limited_cmap)
+    pl.colorbar(im, ax=ax[0, 0])
+    ax[0, 0].set_title('KMeans Labels (PyTorch)')
 
-        wav = np.linspace(-5, 5, 100)
-        y1 = np.exp(-(wav[None, :] - v[:, None])**2 * 2.0)
-        y2 = np.exp(-(wav[None, :] - v[:, None])**2 * 3.0) + 0.5 * np.exp(-((wav[None, :] - v[:, None]) - 2)**2 * 2.0)
+    im = ax[0, 1].imshow(kmeans_np.labels_.reshape(nx, ny), cmap=limited_cmap)
+    pl.colorbar(im, ax=ax[0, 1])
+    ax[0, 1].set_title('KMeans Labels (Scikit-learn)')
 
-        y = np.concatenate([y1[0:450, :], y2[450:, :]], axis=0)
+    im = ax[1, 0].imshow(vout.reshape(nx, ny).cpu().numpy())
+    pl.colorbar(im, ax=ax[1, 0])    
+    ax[1, 0].set_title('Subpixel Shift v')
 
-        k = 2
-
-        kmeans_np = KMeans(n_clusters=k, random_state=0, n_init="auto").fit(y)
-
-        y = torch.tensor(y.astype('float32'))
-        centroids, labels, vout = kmeans_shift(y, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
-
-        limited_colors = pl.cm.tab10(np.linspace(0, k/10.0-0.1, k))
-        limited_cmap = ListedColormap(limited_colors)
-
-        fig, ax = pl.subplots(nrows=1, ncols=2, figsize=(12, 6))
-        for i in range(k):
-            ax[0].plot(centroids[i, :].cpu().numpy(), label=f'Centroid {i}')
-        ax[0].legend()
-        ax[0].set_title('KMeans Centroids (PyTorch)')
-        
-        for i in range(k):
-            ax[1].plot(kmeans_np.cluster_centers_[i, :], label=f'Cluster {i}')
-        ax[1].set_title('KMeans Centroids (Scikit-learn)')
-
-        fig, ax = pl.subplots(nrows=2, ncols=2, figsize=(12, 12))
-        im = ax[0, 0].imshow(labels.reshape(nx, ny).cpu().numpy(), cmap=limited_cmap)
-        pl.colorbar(im, ax=ax[0, 0])
-        ax[0, 0].set_title('KMeans Labels (PyTorch)')
-
-        im = ax[0, 1].imshow(kmeans_np.labels_.reshape(nx, ny), cmap=limited_cmap)
-        pl.colorbar(im, ax=ax[0, 1])
-        ax[0, 1].set_title('KMeans Labels (Scikit-learn)')
-
-        im = ax[1, 0].imshow(vout.reshape(nx, ny).cpu().numpy())
-        pl.colorbar(im, ax=ax[1, 0])    
-        ax[1, 0].set_title('Subpixel Shift v')
-
-        im = ax[1, 1].imshow(v.reshape(nx, ny))
-        pl.colorbar(im, ax=ax[1, 1])
-        ax[1, 1].set_title('v')
-
-    elif example == 'stokes':
-        
-        f = readsav('stokesall_21Jul24ARM1_002.sav')
-
-        k = 5
-
-        stokesi = np.copy(f['ii'][:])
-        stokesi = stokesi.transpose(0, 2, 1)
-
-        # Remove continuum    # Update centroids as the mean of the data points in each cluster (vectorized)
-            # Create a mask where mask[i, j] is 1 if data[i] belongs to cluster j
-            cluster_mask = (labels.unsqueeze(1) == torch.arange(k).to(device)).float()  # (n_samples, k)
-
-            # Calculate the number of points in each cluster
-            cluster_counts = torch.sum(cluster_mask, dim=0, keepdim=True).transpose(0, 1)  # (k, 1)
-
-            # Calculate the sum of data points for each cluster
-            new_centroids_sum = torch.matmul(cluster_mask.transpose(0, 1), stokesi_shift)  # (k, n_features)
-
-            # Handle empty clusters by re-initializing their centroids
-            empty_clusters = (cluster_counts == 0)
-            if torch.any(empty_clusters):
-                print(f"Warning: Empty clusters detected at iteration {iteration + 1}. Re-initializing.")
-                random_indices = torch.randperm(n_samples)[:torch.sum(empty_clusters)].to(device)
-                new_centroids_sum[empty_clusters.squeeze()] = stokesi_shift[random_indices].float().sum(dim=0)
-                cluster_counts[empty_clusters] = 1.0
-
-            new_centroids = new_centroids_sum / (cluster_counts + 1e-8)malize the data
-
-        # Select a subset of the data
-        nx, ny, nl = stokesi.shape
-        stokesi = stokesi.reshape(nx*ny, 1010)
-        stokesi = stokesi[:, 530:960]
-        
-        kmeans_np = KMeans(n_clusters=k, random_state=0, n_init="auto").fit(stokesi)
-
-        stokesi = torch.tensor(stokesi.astype('float32'))
-
-
-        centroids, labels, v = kmeans_shift(stokesi, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
-
-        limited_colors = pl.cm.tab10(np.linspace(0, k/10.0-0.1, k))
-        limited_cmap = ListedColormap(limited_colors)
-
-        fig, ax = pl.subplots(nrows=1, ncols=2, figsize=(12, 6))
-        for i in range(k):
-            ax[0].plot(centroids[i, :].cpu().numpy(), label=f'Centroid {i}')
-        ax[0].legend()
-        ax[0].set_title('KMeans Centroids (PyTorch)')
-        
-        for i in range(k):
-            ax[1].plot(kmeans_np.cluster_centers_[i, :], label=f'Cluster {i}')
-        ax[1].set_title('KMeans Centroids (Scikit-learn)')
-
-        fig, ax = pl.subplots(nrows=2, ncols=2, figsize=(12, 12))
-        im = ax[0, 0].imshow(labels.reshape(nx, ny).cpu().numpy(), cmap=limited_cmap)
-        pl.colorbar(im, ax=ax[0, 0])
-        ax[0, 0].set_title('KMeans Labels (PyTorch)')
-
-        im = ax[0, 1].imshow(kmeans_np.labels_.reshape(nx, ny), cmap=limited_cmap)
-        pl.colorbar(im, ax=ax[0, 1])
-        ax[0, 1].set_title('KMeans Labels (Scikit-learn)')
-
-        im = ax[1, 0].imshow(v.reshape(nx, ny).cpu().numpy())
-        pl.colorbar(im, ax=ax[1, 0])    
-        ax[1, 0].set_title('Subpixel Shift v')
-
-        ax[1, 1].imshow(f['ii'][:, 805, :])
-        ax[1, 1].set_title('Brightness')
+    im = ax[1, 1].imshow(v.reshape(nx, ny))
+    pl.colorbar(im, ax=ax[1, 1])
+    ax[1, 1].set_title('v')

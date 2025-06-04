@@ -20,7 +20,7 @@ Clone the repository and install the required dependencies:
 ```bash
 git clone https://github.com/aasensio/shift-kmeans.git
 cd shift-kmeans
-pip install -r requirements.txt
+pip install . -e
 ```
 
 ## Usage
@@ -29,9 +29,9 @@ To use it, provided you have data with dimensions (n_samples, n_features), just 
 
 ```python
 
-from kmeans_shift import kmeans_shift
+from shift_kmeans import shift_kmeans
 
-centroids, labels, vout = kmeans_shift(y, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
+centroids, labels, vout = shift_kmeans(y, k, max_iters=250, lr=10.0, gpu=0, infer_v=True)
 ```
 
 It returns the `centroids` with the features of the `k` clusters, the `labels` of each 

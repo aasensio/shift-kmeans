@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kmeans"
+name = "shift_kmeans"
 version = "0.1"
 authors = [
   { name="A. Asensio Ramos", email="andres.asensio@iac.es" },
