@@ -1,1 +1,1 @@
-from shift_kmeans import shift_kmeans
+from .shift_kmeans import shift_kmeans
